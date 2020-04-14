@@ -2,6 +2,7 @@ import json
 import requests
 import os
 import youtube_dl
+from exceptions import ResponseException
 
 from secrets import spotify_user_id, spotify_token
 import google_auth_oauthlib.flow
@@ -45,6 +46,7 @@ class CreatePlaylist:
     
     # Step 2: Grab our liked videos & creating a dictionary of important song information
     def get_liked_videos(self):
+        # TODO: find a way to iterate through an entire playlist of videos
         request = self.youtube_client.videos().list(
                 part = "snippet,contentDetails,statistics",
                 myRating = "like"
@@ -61,22 +63,37 @@ class CreatePlaylist:
             song_name = video["track"]
             artist = video["artist"]
 
-            # save all important information
-            self.all_song_info[video_title] = {
-                "youtube_url": youtube_url,
-                "song_name": song_name,
-                "artist": artist,
+            if song_name is not None and artist is not None:
+                # save all important information
+                self.all_song_info[video_title] = {
+                    "youtube_url": youtube_url,
+                    "song_name": song_name,
+                    "artist": artist,
 
-                # add the uri, easy to get song to put into playlist
-                "spotify_uri": self.get_spotify_url(song_name, artist)
-            }
+                    # add the uri, easy to get song to put into playlist
+                    "spotify_uri": self.get_spotify_url(song_name, artist)
+                }
     
     # Step 3: Create A New Playlist
     def create_playlist(self):
+        print("\nEnter the playlist name: ", end = "")
+        playlistName = input()
+
+        print("\nEnter a description: ", end = "")
+        description = input()
+
+        print("\nIs it public? (y or n): ", end = "")
+        public = input()
+
+        if public.lower() == "y":
+            public = True
+        else:
+            public = False
+
         request_body = json.dumps({
-            "name": "Test Playlist"
-            "description": "This is to test if a playlist can be created"
-            "public": True
+            "name": playlistName,
+            "description": description,
+            "public": public
         })
         
         query = "https://api.spotify.com/v1/users/{}/playlists".format(self.user_id)
@@ -141,6 +158,11 @@ class CreatePlaylist:
                 "Authorization": "Bearer {}".format(self.spotify_token)
             }
         )
+
+        # check for valid response status   
+        if response.status_code != 200: 
+            raise ResponseException(response.status_code)
+
         response_json = response.json()
         return response_json
 
