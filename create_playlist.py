@@ -1,6 +1,7 @@
 import json
 import requests
 import os
+import youtube_dl
 
 from secrets import spotify_user_id, spotify_token
 import google_auth_oauthlib.flow
@@ -13,8 +14,9 @@ class CreatePlaylist:
         self.user_id = spotify_user_id
         self.spotify_token = spotify_token
         self.youtube_client = self.get_youtube_client()
+        self.all_song_info = {}
     
-    # Step 1: Log Into Youtube
+    # Step 1: Log into youtube
     def get_youtube_client(self):
         # Disable OAuthlib's HTTPS verification when running locally.
         # *DO NOT* leave this option enabled in production.
@@ -27,20 +29,47 @@ class CreatePlaylist:
         # Get credentials and create an API client
         scopes = ["https://www.googleapis.com/auth/youtube.readonly"]
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-                client_secrets_file, scopes
+                client_secrets_file, 
+                scopes
             )
         credentials = flow.run_console()
 
         # from the Youtube DATA API
         youtube_client = googleapiclient.discovery.build(
-                api_service_name, api_version, credentials=credentials
+                api_service_name, 
+                api_version, 
+                credentials = credentials
             )
 
         return youtube_client
     
-    # Step 2: Grab Our Liked Videos
+    # Step 2: Grab our liked videos & creating a dictionary of important song information
     def get_liked_videos(self):
-        pass
+        request = self.youtube_client.videos().list(
+                part = "snippet,contentDetails,statistics",
+                myRating = "like"
+            )
+        response = request.execute()
+
+        # collect each video and get important information
+        for item in response["items"]:
+            video_title = item["snippet"]["title"]
+            youtube_url = "https://www.youtube.com/watch?v={}".format(item["id"])
+
+            # use youtube_dl to collect the song name & artist name
+            video = youtube_dl.YoutubeDL({}).extract_info(youtube_url, download = False)
+            song_name = video["track"]
+            artist = video["artist"]
+
+            # save all important information
+            self.all_song_info[video_title] = {
+                "youtube_url": youtube_url,
+                "song_name": song_name,
+                "artist": artist,
+
+                # add the uri, easy to get song to put into playlist
+                "spotify_uri": self.get_spotify_url(song_name, artist)
+            }
     
     # Step 3: Create A New Playlist
     def create_playlist(self):
