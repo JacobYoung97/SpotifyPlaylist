@@ -117,4 +117,33 @@ class CreatePlaylist:
     
     # Step 5: Add this song into the new Spotify playlist
     def add_song_to_playlist(self):
-        pass
+        # populate our songs dictionary
+        self.get_liked_videos()
+
+        # collect all uris
+        uris = []
+        for song, info in self.all_song_info.items():
+            uris.append(info["spotify_uri"])
+
+        # create a new playlist
+        playlist_id = self.create_playlist()
+
+        # add all new songs into playlist
+        request_data = json.dumps(uris)
+
+        query = "https://api.spotify.com/v1/playlists/{}/tracks".format(playlist_id)
+
+        response = requests.post(
+            query,
+            data = request_data,
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(self.spotify_token)
+            }
+        )
+        response_json = response.json()
+        return response_json
+
+if __name__ == '__main__':
+    cp = CreatePlaylist()
+    cp.add_song_to_playlist()
