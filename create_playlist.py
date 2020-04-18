@@ -16,6 +16,7 @@ class CreatePlaylist:
         self.spotify_token = spotify_token
         self.youtube_client = self.get_youtube_client()
         self.all_song_info = {}
+        self.playlists = {}
     
     # Step 1: Log into youtube
     def get_youtube_client(self):
@@ -44,13 +45,30 @@ class CreatePlaylist:
 
         return youtube_client
     
-    # Step 2: Grab our liked videos & creating a dictionary of important song information
+    # Step 1.5: Get the list of all the playlists the user has made (liked videos is hardcoded as choice 1)
+    def get_playlists(self):
+        playlists = {}
+        num = 2
+        request = self.youtube_client.playlists().list(
+            part = "snippet,contentDetails",
+            maxResults = 50,
+            mine = True
+        )
+        response = request.execute()
+
+        for item in response["items"]:
+            print(str(num) + ". " + item["snippet"]["title"])
+            self.playlists[num] = item["id"]
+            num += 1
+
+    # Step 2: Grab our liked videos & create a dictionary of important song information
     def get_liked_videos(self):
         # TODO: find a way to iterate through an entire playlist of videos
         request = self.youtube_client.videos().list(
-                part = "snippet,contentDetails,statistics",
-                myRating = "like"
-            )
+            part = "snippet,contentDetails,statistics",
+            maxResults = 50,
+            myRating = "like"
+        )
         response = request.execute()
 
         # collect each video and get important information
@@ -74,6 +92,20 @@ class CreatePlaylist:
                     "spotify_uri": self.get_spotify_url(song_name, artist)
                 }
     
+    # Step 2: Grab the videos from the playlist & create a dictionary of important song information
+    def get_playlist_videos(self, playlist):
+        # playlistId is the one saved in the dictionary from earlier
+        request = youtube.playlistItems().list(
+            part = "snippet,contentDetails",
+            maxResults = 50,
+            playlistId = self.playlists[playlist]
+        )
+        response = request.execute()
+
+        # TODO: find a way to get more pages of videos from the playlist
+        for item in response["items"]:
+            print(item["snippet"]["title"])
+
     # Step 3: Create A New Playlist
     def create_playlist(self):
         print("\nEnter the playlist name: ", end = "")
@@ -135,36 +167,44 @@ class CreatePlaylist:
     # Step 5: Add this song into the new Spotify playlist
     def add_song_to_playlist(self):
         # populate our songs dictionary
-        self.get_liked_videos()
+        # TODO: change this to ask which playlist they would like to gather videos from
+        print("Select the playlist you would like to send to Spotify")
+        self.playlists[1] = "Liked videos"
+        print("1. Liked videos")
+        self.get_playlists()
+        num = input()
+        print(self.playlists[int(num)])
+        # If the choice is 1, then we get the liked videos; otherwise we get the videos from that playlist
+        # self.get_liked_videos()
 
-        # collect all uris
-        uris = []
-        for song, info in self.all_song_info.items():
-            uris.append(info["spotify_uri"])
+        # # collect all uris
+        # uris = []
+        # for song, info in self.all_song_info.items():
+        #     uris.append(info["spotify_uri"])
 
-        # create a new playlist
-        playlist_id = self.create_playlist()
+        # # create a new playlist
+        # playlist_id = self.create_playlist()
 
-        # add all new songs into playlist
-        request_data = json.dumps(uris)
+        # # add all new songs into playlist
+        # request_data = json.dumps(uris)
 
-        query = "https://api.spotify.com/v1/playlists/{}/tracks".format(playlist_id)
+        # query = "https://api.spotify.com/v1/playlists/{}/tracks".format(playlist_id)
 
-        response = requests.post(
-            query,
-            data = request_data,
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {}".format(self.spotify_token)
-            }
-        )
+        # response = requests.post(
+        #     query,
+        #     data = request_data,
+        #     headers = {
+        #         "Content-Type": "application/json",
+        #         "Authorization": "Bearer {}".format(self.spotify_token)
+        #     }
+        # )
 
-        # check for valid response status   
-        if response.status_code != 200: 
-            raise ResponseException(response.status_code)
+        # # check for valid response status   
+        # if response.status_code != 200: 
+        #     raise ResponseException(response.status_code)
 
-        response_json = response.json()
-        return response_json
+        # response_json = response.json()
+        # return response_json
 
 if __name__ == '__main__':
     cp = CreatePlaylist()
