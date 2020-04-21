@@ -63,7 +63,6 @@ class CreatePlaylist:
 
     # Step 2: Grab our liked videos & create a dictionary of important song information
     def get_liked_videos(self):
-        # TODO: find a way to iterate through an entire playlist of videos
         request = self.youtube_client.videos().list(
             part = "snippet,contentDetails,statistics",
             maxResults = 50,
@@ -96,7 +95,7 @@ class CreatePlaylist:
     # Step 2: Grab the videos from the playlist & create a dictionary of important song information
     # The only difference between this one and the get_liked_videos one is the location of the video id
     def get_playlist_videos(self, playlist):
-        # playlistId is the one saved in the dictionary from earlier
+        # playlistId is the one saved in the dictionary from earlier (saved by the number in the list that was generated)
         request = self.youtube_client.playlistItems().list(
             part = "snippet,contentDetails",
             maxResults = 50,
@@ -104,6 +103,7 @@ class CreatePlaylist:
         )
         response = request.execute()
 
+        # collect each video and get important information
         # TODO: find a way to get more pages of videos from the playlist
         for item in response["items"]:
             video_title = item["snippet"]["title"]
@@ -179,8 +179,9 @@ class CreatePlaylist:
         # only use the first song (if the result doesn't return anything then this checks)
         if len(songs) != 0:
             uri = songs[0]["uri"]
+        # The song could not be found for whatever reason
         else:
-            uri = ""
+            uri = None
         
         return uri
     
@@ -204,7 +205,8 @@ class CreatePlaylist:
         # collect all uris
         uris = []
         for song, info in self.all_song_info.items():
-            uris.append(info["spotify_uri"])
+            if info["spotify_uri"] is not None:
+                uris.append(info["spotify_uri"])
 
         # create a new playlist
         playlist_id = self.create_playlist()
